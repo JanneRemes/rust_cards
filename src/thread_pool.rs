@@ -1,26 +1,35 @@
-use std::time::Duration;
 use std::thread;
 use std::thread::{JoinHandle};
 use std::sync::{Arc, Mutex};
 
 use std::sync::mpsc;
+use std::sync::mpsc::{Receiver, Sender};
 
-use std::collections::HashMap;
+type Job = Box<FnBox + Send + 'static>;
+
+pub trait FnBox {
+	fn call_box(self: Box<Self>);
+}
+
+impl<F: FnOnce()> FnBox for F {
+	fn call_box(self: Box<F>) {
+		(*self)();
+	}
+}
 
 enum ThreadMessage {
-	Job,
+	Task(Job),
+	TaskDone,
 	Terminate,
 }
 
 struct Worker {
-	id: usize,
 	handle: Option<JoinHandle<()>>
 }
 
 impl Worker {
-	pub fn new(id: usize, handle: JoinHandle<()>) -> Worker {
+	pub fn new(handle: JoinHandle<()>) -> Worker {
 		Worker {
-			id,
 			handle: Some(handle),
 		}
 	}
@@ -34,8 +43,10 @@ impl Worker {
 
 pub struct ThreadPool {
 	threads: Vec<Worker>,
-	work: Arc<Mutex<Vec<usize>>>,
-	sender: mpsc::Sender<ThreadMessage>,
+	work_waiting: usize,
+	work_done: usize,
+	sender: Sender<ThreadMessage>,
+	receiver: Receiver<ThreadMessage>,
 }
 
 impl ThreadPool {
@@ -43,84 +54,77 @@ impl ThreadPool {
 		
 		let mut threads = Vec::new();
 		
-		let work = Arc::new(Mutex::new(Vec::new()));
-		
 		let (tx, rx) = mpsc::channel();
+
+		let (_transfer_done, receiver_done) = mpsc::channel();
+		
 		let receiver = Arc::new(Mutex::new(rx));
 		
 		for i in 0 .. num_threads {
 			let rec = receiver.clone();
-			threads.push(Worker::new(i, thread::Builder::new()
-				.name(format!("PoolThread#{}", i))
+			// let trans = transfer_done.clone();
+			threads.push(Worker::new(thread::Builder::new()
+				.name(format!("ThreadPool Worker#{}", i))
 				.spawn(move || {
-				
-				// Code run on thread
-				let mut work_done = 0;
-				loop {
-					// Wait for worker message from threadpool
-					//let msg = receiver.recv().unwrap();
-					{
-						let rec = rec.lock().unwrap();
-						if let Ok(msg) = rec.try_recv() {
-							match msg {
-								Terminate => {println!("Thread got terminate message!"); break},
-								Job => {
-									work_done += 1;
-									thread::sleep(Duration::from_millis(1));
-								},
+					loop {
+						// Wait for worker message from threadpool
+						{
+							//let rec = rec.lock().unwrap();
+							if let Ok(rec) = rec.try_lock() {
+								if let Ok(msg) = rec.recv() {
+									match msg {
+										ThreadMessage::Terminate => { break; }, // Thread should be terminated
+										ThreadMessage::Task(job) => {
+											// Release lock from message stream,
+											//  so other threads can receive tasks
+											drop(rec);
+											// Do the task
+											job.call_box();
+											// Afterwards, send JobDone message down the stream
+											// trans.send(ThreadMessage::TaskDone).unwrap();
+										},
+										_ => {},
+									}
+								}
 							}
 						}
 					}
 				}
-			}
 			).unwrap()));
 		}
 		
 		ThreadPool {
 			threads,
-			work,
+			work_waiting: 0,
+			work_done: 0,
 			sender: tx,
+			receiver: receiver_done,
 		}
 	}
 	
-	pub fn add_work(&mut self, work_to_add: usize) {
-		//*(*self.work_num).lock().unwrap() += work_to_add;
+	pub fn work<F>(&mut self, f: F) 
+		where F: FnBox + Send + 'static
+	{
+		self.work_waiting += 1;
+		let job = Box::new(f);
+		self.sender.send(ThreadMessage::Task(job)).unwrap();
 	}
 	
-	pub fn wait_for_done(&self) {
-		loop {
+	// Waits for all work to be done, returns the amount of work done since last wait
+	/*
+	pub fn wait_for_done(&mut self) -> usize {
+		while self.work_waiting > 0 {
+			if let Ok(ThreadMessage::TaskDone) = self.receiver.try_recv()
 			{
-				let work = self.work.lock().unwrap();
-				if work.len() == 0 {
-					break;
-				}
-			
+				self.work_waiting -= 1;
+				self.work_done += 1;
 			}
-			thread::sleep(Duration::from_millis(1));
 		}
+		let wd = self.work_done;
+		self.work_done = 0;
+		wd
 	}
-	
-	pub fn print_stats(&self) {
-		/*
-		println!("\nThreadPool execution amounts");
-	
-		let mut amounts = Vec::new();
-		for _ in 0 .. self.num_threads() {
-			amounts.push(0);
-		}
-	
-		let map = self.work_amount.lock().unwrap();
-	
-		for v in (*map).iter() {
-			let index = *v.0;
-			amounts[index] += v.1;
-		}
-		
-		for (thread_num, work_done) in amounts.iter().enumerate() {
-			println!("[Thread #{}] {}", thread_num, work_done);
-		}
-		*/
-	}
+	*/
 	
 	pub fn join(&mut self) {
 		for _ in 0 .. self.num_threads() {

@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["VilleTii"]
 
 [dependencies]
+pool_barrier = "0.1.1"
 
 [dev-dependencies]
 criterion = "0.2"
