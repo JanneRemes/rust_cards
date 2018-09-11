@@ -1,0 +1,13 @@
+[package]
+name = "rust_cards"
+version = "0.1.0"
+authors = ["VilleTii"]
+
+[dependencies]
+
+[dev-dependencies]
+criterion = "0.2"
+
+[[bench]]
+name = "my_benchmark"
+harness = false
