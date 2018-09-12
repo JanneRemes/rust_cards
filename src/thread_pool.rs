@@ -3,7 +3,7 @@ use std::thread::{JoinHandle};
 use std::sync::{Arc, Mutex};
 
 use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::Sender;
 
 type Job = Box<FnBox + Send + 'static>;
 
@@ -19,7 +19,7 @@ impl<F: FnOnce()> FnBox for F {
 
 enum ThreadMessage {
 	Task(Job),
-	TaskDone,
+	// TaskDone,
 	Terminate,
 }
 
@@ -44,9 +44,9 @@ impl Worker {
 pub struct ThreadPool {
 	threads: Vec<Worker>,
 	work_waiting: usize,
-	work_done: usize,
 	sender: Sender<ThreadMessage>,
-	receiver: Receiver<ThreadMessage>,
+	//work_done: usize,
+	//receiver: Receiver<ThreadMessage>,
 }
 
 impl ThreadPool {
@@ -56,34 +56,33 @@ impl ThreadPool {
 		
 		let (tx, rx) = mpsc::channel();
 
-		let (_transfer_done, receiver_done) = mpsc::channel();
+		//let (_transfer_done, receiver_done) = mpsc::channel();
 		
-		let receiver = Arc::new(Mutex::new(rx));
+		let receiver_mut = Arc::new(Mutex::new(rx));
 		
 		for i in 0 .. num_threads {
-			let rec = receiver.clone();
-			// let trans = transfer_done.clone();
+			let receiver_mut = receiver_mut.clone(); // Mutex<Receiver>
+			// let trans = _transfer_done.clone();
 			threads.push(Worker::new(thread::Builder::new()
 				.name(format!("ThreadPool Worker#{}", i))
 				.spawn(move || {
 					loop {
 						// Wait for worker message from threadpool
 						{
-							//let rec = rec.lock().unwrap();
-							if let Ok(rec) = rec.try_lock() {
-								if let Ok(msg) = rec.recv() {
+							if let Ok(receiver) = receiver_mut.lock() { // Ok<Receiver> ----- Mutex<Receiver>
+								// println!("Thread#{} got message", i);
+								if let Ok(msg) = receiver.recv() {
 									match msg {
 										ThreadMessage::Terminate => { break; }, // Thread should be terminated
 										ThreadMessage::Task(job) => {
 											// Release lock from message stream,
 											//  so other threads can receive tasks
-											drop(rec);
+											drop(receiver);
 											// Do the task
 											job.call_box();
 											// Afterwards, send JobDone message down the stream
 											// trans.send(ThreadMessage::TaskDone).unwrap();
 										},
-										_ => {},
 									}
 								}
 							}
@@ -96,9 +95,9 @@ impl ThreadPool {
 		ThreadPool {
 			threads,
 			work_waiting: 0,
-			work_done: 0,
 			sender: tx,
-			receiver: receiver_done,
+			// work_done: 0,
+			//receiver: receiver_done,
 		}
 	}
 	
