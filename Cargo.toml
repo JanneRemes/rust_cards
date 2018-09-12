@@ -5,6 +5,7 @@ authors = ["VilleTii"]
 
 [dependencies]
 pool_barrier = "0.1.1"
+rand = "0.5.5"
 
 [dev-dependencies]
 criterion = "0.2"

@@ -1,47 +1,18 @@
 mod thread_pool;
 use thread_pool::ThreadPool;
 
-use std::sync::{Arc, Mutex};
+//use std::sync::{Arc, Mutex};
 
 use std::time::Instant;
 
 extern crate pool_barrier;
-use pool_barrier::{Barrier};
+//use pool_barrier::{Barrier};
 
-struct DummyEntity {
-	force: (f32, f32),
-	acceleration: (f32, f32),
-	velocity: (f32, f32),
-	position: (f32, f32),
-	mass: f32,
+extern crate rand;
+use rand::{thread_rng, Rng};
 
-}
-
-impl DummyEntity {
-
-	pub fn new(mass: f32) -> DummyEntity {
-		DummyEntity {
-			force: (0.0, 0.0),
-			acceleration: (0.0, 0.0),
-			velocity: (0.0, 0.0),
-			position: (0.0, 0.0),
-			mass,
-		}
-	}
-
-	pub fn apply_physics(&mut self, dt: f32) {
-		self.acceleration.0 += self.force.0 / self.mass;
-		self.acceleration.1 += self.force.1 / self.mass;
-		self.force = (0.0, 0.0);
-
-		self.velocity.0 += self.acceleration.0 * dt;
-		self.velocity.1 += self.acceleration.1 * dt;
-
-		self.position.0 += self.velocity.0 * dt;
-		self.position.1 += self.velocity.1 * dt;
-	}
-
-}
+mod deck;
+use deck::{Card, Deck};
 
 fn main() {
 
@@ -64,28 +35,29 @@ fn main() {
 	};
 
 	let mut pool = ThreadPool::new(num_threads);
-	
-	let mut entities = Vec::new();
-	
-	for _ in 0 .. 1000 {
-		entities.push(Arc::new(Mutex::new(DummyEntity::new(500.0))));
-		entities.last().unwrap().lock().unwrap().acceleration.0 = 1.0;
+ 
+	let mut rng = thread_rng();
+
+	let mut deck = Deck::new();
+	deck.shuffle(&mut rng);
+
+	let mut hand = Deck::empty();
+	for _ in 0 .. 26 {
+		hand.insert(deck.draw());
 	}
 
-	// Run for x amount of cycles instead of waiting for user input
-	//  which takes another thread
-	let mut x = 60;
+	deck::print_deck(&hand.cards[..]);
+	deck::print_deck(&deck.cards[..]);
 
 	println!("Starting run");
-	
-	let mut barrier = Barrier::new(entities.len());
 
+	//let mut barrier = Barrier::new(0);
 	// TODO: Test for non-threaded vs threaded
-	loop {
-		
-		let mut active = barrier.activate();
-		
+	//loop {
+		//let mut active = barrier.activate();
+
 		// Do some work
+		/*
 		for e in entities.iter_mut() {
 			let e = e.clone();
 			let mut cp = active.checkpoint();
@@ -96,12 +68,8 @@ fn main() {
 			} );
 		}
 		active.wait().unwrap();
-	
-		x -= 1;
-		if x <= 0 {
-			break;
-		}
-	}
+		*/	
+	//}
 
 	let duration = now.elapsed();
 	let millis = (duration.subsec_nanos() / 1000000) + (duration.as_secs() * 1000) as u32;
