@@ -1,6 +1,12 @@
 mod thread_pool;
 use thread_pool::ThreadPool;
 
+mod client;
+use client::Client;
+
+mod server;
+use server::Server;
+
 //use std::sync::{Arc, Mutex};
 
 use std::time::Instant;
@@ -14,32 +20,97 @@ use rand::{thread_rng, Rng};
 mod deck;
 use deck::{Card, Deck};
 
+fn get_arg<T>(args: &[String], arg_name: &str, default_value: T) -> T 
+	where T: std::str::FromStr {
+	for index in 0 .. args.len() {
+		let a = &args[index];
+		if a == arg_name {
+			if let Ok(value) = args[index + 1].parse::<T>() {
+				return value;
+			} else {
+				return default_value
+			}
+		}
+	}
+	default_value
+}
+
+fn get_arg_present(args: &[String], arg_name: &str) -> bool {
+	for a in args {
+		if a == arg_name {
+			return true;
+		}
+	}
+	false
+}
+
+fn print_client_help() {
+	
+}
+
+fn print_server_help() {
+
+	let arguments = vec![	"help - Display this message",
+							"port - Set port to listen to [0 - 65535] Default 1337"
+						];
+
+	println!("Arguments:");
+	for arg in arguments {
+		println!("\t{}", arg);
+	}
+}
+
 fn main() {
+
+	// Arguments as vector of strings
+	let args = std::env::args().collect::<Vec<String>>();
 
 	// Use std::time::Instant to measure
 	//   time it takes to finish the jobs
 	let now = Instant::now();
-		
+	
     println!("Hello, cards!");
 
-	let args = std::env::args().collect::<Vec<String>>();
-	println!("Args: {:?}", args);
-
-	let num_threads = {
-		if args.len() > 1 {
-			args[1].parse::<usize>().unwrap_or({ 1 })
+	// Should we launch server or client
+	let server = get_arg_present(&args[..], "server");
+	
+	// Should we just display help messages or launch
+	let help = get_arg_present(&args[..], "help");
+	if help {
+		if server {
+			print_server_help();
 		} else {
-			println!("no thread_num argument given, going with default 1");
-			1
+			print_client_help();
 		}
-	};
-
+		return;
+	}
+	
+	if server {
+	
+		let port = get_arg::<u16>(&args[..], "port", 1337);
+		
+		let server = Server::new(port);
+		server.wait_for_message();
+		
+	} else {
+		println!("Launching client!");
+		
+		let port = get_arg::<u16>(&args[..], "port", 1337);
+		
+		let client = Client::new("127.0.0.1", port);
+		client.send_message("Hello, world!");
+	}
+	
+	return;
+	
+	let num_threads = get_arg::<usize>(&args[..], "threads", 1);
+	
 	let mut pool = ThreadPool::new(num_threads);
  
 	let mut rng = thread_rng();
 
 	let mut deck = Deck::new();
-	deck.shuffle(&mut rng);
+	//deck.shuffle(&mut rng);
 
 	let mut hand = Deck::empty();
 	for _ in 0 .. 26 {
