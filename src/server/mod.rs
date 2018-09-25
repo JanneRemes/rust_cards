@@ -1,36 +1,28 @@
-use std::net::UdpSocket;
-
-use std::io;
-
+use std::net::{UdpSocket, SocketAddr};
 use std::thread;
 use std::thread::JoinHandle;
-
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
-
 use std::time::Duration;
+use std::str;
 
-#[derive(Debug)]
-enum InputMessage {
-	Echo(String),
-	Error,
-}
+use std::sync::{Arc, Mutex};
+
+use server_message::*;
+use serde_json;
+
+use deck::Deck;
+
+use input_thread::*;
 
 pub struct Server {
 	port: u16,
 	socket: UdpSocket,
-	input_thread: JoinHandle<()>,
+	input_thread: Option<JoinHandle<()>>,
 	input_receiver: Receiver<InputMessage>,
-}
-
-fn input_loop(sender: Sender<InputMessage>) {
-	let stdin = io::stdin();
-	loop {
-		let mut input = String::new();
-		stdin.read_line(&mut input).unwrap();
-		let input = input.trim().to_string();
-		sender.send(InputMessage::Echo(input)).unwrap();
-	}
+	deck: Deck,
+	
+	thread_closer: Arc<Mutex<bool>>,
 }
 
 impl Server {
@@ -44,56 +36,89 @@ impl Server {
 		
 		let (trans, recv) = mpsc::channel();
 		
-		socket.set_read_timeout(Some(Duration::from_millis(1)));
-	
+		socket.set_read_timeout(Some(Duration::from_millis(1))).expect("failed to set timeout for server socket");
+		
 		println!("[Server] Listening on port {}", port);
 		
-		let handle = thread::spawn(move || {input_loop(trans);});
+		let thread_closer = Arc::new(Mutex::new(false));
+		let tc = thread_closer.clone();
+		let handle = thread::spawn(move || {input_loop(trans, tc);});
 
+		let deck = Deck::new();
+		
 		Server {
 			port,
 			socket,
-			input_thread: handle,
+			input_thread: Some(handle),
 			input_receiver: recv,
+			deck,
+			thread_closer,
 		}
 	}
 	
-	pub fn wait_for_message(&self) {
+	pub fn wait_for_message(&mut self) {
 		let mut running = true;
 		while running {
-			unsafe {
-				let mut message_buffer: [u8; 256] = [0; 256];
-				//let (msg_size, host) = 
-				if let Ok((msg_size, host)) = self.socket.recv_from(&mut message_buffer) {
-					let msg = String::from_utf8_unchecked(message_buffer.to_vec());
-					println!("[MSGRecv] Size={} Host=[{:?}] Msg=\"{}\"", msg_size, host, msg);
-				} else {
-					//println!("Timeout on read, checking input from server...");
-					
-					loop {
-						if let Ok(msg) = self.input_receiver.try_recv() {
-							use self::InputMessage::*;
-						
-							if let Echo(msg) = msg {
-								if msg.starts_with("/stop") {
-									println!("[Server] Shutting down server...");
-									running = false;
-									break;
-								} else if msg.starts_with("/help") {
-									self.print_help();
-								} else if msg.starts_with("/info") {
-									println!("[Info] Listening on port {}", self.port);
-								} else {
-									println!("[Server] Unkown command '{}', try '/help' to display commands", msg);
+			let mut message_buffer: [u8; 1024] = [0; 1024];
+			//let (msg_size, host) = 
+			if let Ok((msg_size, host)) = self.socket.recv_from(&mut message_buffer) {
+				// Receiving message from client
+				if msg_size <= 1024 {
+					let msg_str = str::from_utf8(&message_buffer[0..msg_size]).unwrap();
+					if let Ok(request) = serde_json::from_str::<ServerMessage>(msg_str) {
+						//println!("[Server] Got request: {:?}", request);
+						match request {
+							ServerMessage::Request(token) => {
+								match token {
+									RequestToken::Card(amount) => {
+										// Client requests card
+										for _ in 0 .. amount {
+											let answer = ServerMessage::Answer(AnswerToken::Card(self.deck.draw()));
+											let answer_msg = serde_json::to_string(&answer).expect("Couldn't serialize server answer");
+											self.answer_client(host, answer_msg);
+										}
+									}
 								}
-							}
-						} else {
-							break;
+							},
+							_ => (),
 						}
+					} else {
+						// Invalid request
+					}
+				} else {
+					eprintln!("[Server Error] Message received too big!");
+				}
+			} else {
+				// Receiving message from console, ie. server user
+				//println!("Timeout on read, checking input from server...");
+				loop {
+					if let Ok(msg) = self.input_receiver.try_recv() {
+						use input_thread::InputMessage::*;
+					
+						if let Echo(msg) = msg {
+							if msg.starts_with("/stop") {
+								println!("[Server] Shutting down server...");
+								running = false;
+								break;
+							} else if msg.starts_with("/help") {
+								self.print_help();
+							} else if msg.starts_with("/info") {
+								println!("[Info] Listening on port {}", self.port);
+								println!("[Info] Server deck size: {}", self.deck.cards.len());
+							} else {
+								println!("[Server] Unkown command '{}', try '/help' to display commands", msg);
+							}
+						}
+					} else {
+						break;
 					}
 				}
 			}
 		}
+	}
+	
+	fn answer_client(&mut self, host: SocketAddr, msg: String) {
+		self.socket.send_to(msg.as_bytes(), host).unwrap();
 	}
 	
 	fn print_help(&self) {
@@ -106,4 +131,15 @@ impl Server {
 		}
 	}
 	
+}
+
+impl Drop for Server {
+	fn drop(&mut self) {
+		{
+			let mut lock = self.thread_closer.lock().unwrap();
+			*lock = true;
+		}
+		println!("[Server] Press enter to close");
+		self.input_thread.take().unwrap().join().unwrap();
+	}
 }

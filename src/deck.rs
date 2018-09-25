@@ -1,6 +1,8 @@
 use rand::Rng;
 
+
 // Default 4 suit deck cards
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Card {
 	Heart(i32), // Hertta
 	Spade(i32), // Pata
@@ -63,9 +65,24 @@ impl Card {
             _ => ' '
         }
     }
+	
+	pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Card
+	{
+		use self::Card::*;
+		let value = rng.gen_range(1, 14);
+		let suit = rng.gen_range(0, 4);
+		match suit {
+			0 => Heart(value),
+			1 => Diamond(value),
+			2 => Spade(value),
+			3 => Club(value),
+			_ => Hidden
+		}
+	}
 
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Deck {
 	pub cards: Vec<Card>
 }
@@ -106,6 +123,10 @@ impl Deck {
     pub fn shuffle<R: Rng + ?Sized>(&mut self, rng: &mut R) {
         rng.shuffle(&mut self.cards[..]);
     }
+	
+	pub fn print(&self) {
+		print_deck(&self.cards[..]);
+	}
 
 }
 

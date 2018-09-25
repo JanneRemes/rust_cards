@@ -1,11 +1,21 @@
+#[macro_use]
+extern crate serde_derive;
+
+extern crate serde_json;
+
 mod thread_pool;
 use thread_pool::ThreadPool;
+
+mod input_thread;
 
 mod client;
 use client::Client;
 
 mod server;
 use server::Server;
+
+mod server_message;
+use server_message::*;
 
 //use std::sync::{Arc, Mutex};
 
@@ -45,11 +55,17 @@ fn get_arg_present(args: &[String], arg_name: &str) -> bool {
 }
 
 fn print_client_help() {
-	
+	let arguments = vec![	"help - Display this message",
+							"connect - IP to connect to [IPv4] Default localhost"
+						];
+
+	println!("Arguments:");
+	for arg in arguments {
+		println!("\t{}", arg);
+	}
 }
 
 fn print_server_help() {
-
 	let arguments = vec![	"help - Display this message",
 							"port - Set port to listen to [0 - 65535] Default 1337"
 						];
@@ -64,12 +80,12 @@ fn main() {
 
 	// Arguments as vector of strings
 	let args = std::env::args().collect::<Vec<String>>();
-
+	
 	// Use std::time::Instant to measure
 	//   time it takes to finish the jobs
 	let now = Instant::now();
 	
-    println!("Hello, cards!");
+    // println!("Hello, cards!");
 
 	// Should we launch server or client
 	let server = get_arg_present(&args[..], "server");
@@ -89,16 +105,17 @@ fn main() {
 	
 		let port = get_arg::<u16>(&args[..], "port", 1337);
 		
-		let server = Server::new(port);
+		let mut server = Server::new(port);
 		server.wait_for_message();
 		
 	} else {
 		println!("Launching client!");
 		
 		let port = get_arg::<u16>(&args[..], "port", 1337);
+		let address = get_arg::<String>(&args[..], "connect", "127.0.0.1".to_string());
 		
-		let client = Client::new("127.0.0.1", port);
-		client.send_message("Hello, world!");
+		let mut client = Client::new(&address, port);
+		client.run();
 	}
 	
 	return;
