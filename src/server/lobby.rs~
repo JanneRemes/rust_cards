@@ -1,0 +1,5 @@
+struct Lobby {
+    name: String,
+    password: String, // Currently passwords are stored as-is cleartext, this should be hashed
+    
+}

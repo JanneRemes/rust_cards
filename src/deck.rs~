@@ -4,15 +4,15 @@ use rand::Rng;
 // Default 4 suit deck cards
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Card {
-    Heart(i32), // Hertta
-    Spade(i32), // Pata
-    Diamond(i32), // Ruutu
-    Club(i32), // Risti
+	Heart(i32), // Hertta
+	Spade(i32), // Pata
+	Diamond(i32), // Ruutu
+	Club(i32), // Risti
     Hidden, // Hidden or back side of a card
 }
 
 impl Card {
-    
+
     pub fn get_line(&self, line: usize) -> String {
         let suit = self.get_suit();
         let value = get_value_for_card(self.get_value());
@@ -36,7 +36,7 @@ impl Card {
             _ => String::new()
         }
     }
-    
+
     fn get_value(&self) -> i32 {
         use self::Card::*;
         match self {
@@ -47,7 +47,7 @@ impl Card {
             Hidden => 0,
         }
     }
-    
+
     fn get_suit(&self) -> char {
         use self::Card::*;
         match self {
@@ -58,37 +58,37 @@ impl Card {
             Hidden => '░',
         }
     }
-    
+
     fn get_background(&self) -> char {
         match self {
             Card::Hidden => '░',
             _ => ' '
         }
     }
-    
-    pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Card
-    {
-	use self::Card::*;
-	let value = rng.gen_range(1, 14);
-	let suit = rng.gen_range(0, 4);
-	match suit {
-	    0 => Heart(value),
-	    1 => Diamond(value),
-	    2 => Spade(value),
-	    3 => Club(value),
-	    _ => Hidden
+	
+	pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Card
+	{
+		use self::Card::*;
+		let value = rng.gen_range(1, 14);
+		let suit = rng.gen_range(0, 4);
+		match suit {
+			0 => Heart(value),
+			1 => Diamond(value),
+			2 => Spade(value),
+			3 => Club(value),
+			_ => Hidden
+		}
 	}
-    }
-    
+
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Deck {
-    pub cards: Vec<Card>
+	pub cards: Vec<Card>
 }
 
 impl Deck {
-    
+
     pub fn new() -> Deck {
         let mut cards = Vec::new();
         for i in 1 ..= 13 {
@@ -101,17 +101,17 @@ impl Deck {
             cards
         }
     }
-    
+
     pub fn empty() -> Deck {
         Deck {
             cards: Vec::new(),
         }
     }
-    
+
     pub fn insert(&mut self, card: Card) {
         self.cards.push(card);
     }
-    
+
     pub fn draw(&mut self) -> Card {
         if let Some(card) = self.cards.pop() {
             card
@@ -119,15 +119,15 @@ impl Deck {
             Card::Hidden
         }
     }
-    
+
     pub fn shuffle<R: Rng + ?Sized>(&mut self, rng: &mut R) {
         rng.shuffle(&mut self.cards[..]);
     }
-    
-    pub fn print(&self) {
-	print_deck(&self.cards[..]);
-    }
-    
+	
+	pub fn print(&self) {
+		print_deck(&self.cards[..]);
+	}
+
 }
 
 pub fn print_deck(cards: &[Card]) {
@@ -155,7 +155,7 @@ fn get_value_for_card(value: i32) -> &'static str {
         11 => "J ",
         12 => "Q ",
         13 => "K ",
-        _ => "?░"
+        _ => "░ "
     }
-    
+
 }
