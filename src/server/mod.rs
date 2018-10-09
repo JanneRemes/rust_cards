@@ -29,8 +29,11 @@ pub struct Server {
     input_receiver: Receiver<InputMessage>,
     deck: Deck,
     randomizer: ThreadRng,
+
+    next_player_id: u32,
     
     lobbies: Vec<Lobby>,
+    next_lobby_id: u32,
 
     thread_closer: Arc<Mutex<bool>>,
 }
@@ -66,7 +69,9 @@ impl Server {
 	    input_receiver: recv,
 	    deck,
             randomizer,
+            next_player_id: 1,
             lobbies: Vec::new(),
+            next_lobby_id: 1,
 	    thread_closer,
 	}
     }
@@ -105,6 +110,7 @@ impl Server {
 			    } else if msg.starts_with("/info") {
 				println!("[Info] Listening on port {}", self.port);
 				println!("[Info] Server deck size: {}", self.deck.cards.len());
+                                println!("[Info] Server lobbies: {}", self.lobbies.len());
 			    } else {
 				println!("[Server] Unkown command '{}', try '/help' to display commands", msg);
 			    }
@@ -116,7 +122,41 @@ impl Server {
 	    }
 	}
     }
-    
+
+    fn get_lobby(&self, lobby_id: u32) -> Option<&Lobby> {
+        for l in &self.lobbies {
+            if l.get_id() == lobby_id {
+                return Some(l);
+            }
+        } return None;
+    }
+
+    fn get_lobby_mut<'a>(&'a mut self, lobby_id: u32) -> Option<&'a mut Lobby> {
+        for i in 0 .. self.lobbies.len() {
+            let lobby = self.lobbies[i].get_id();
+            if lobby == lobby_id {
+                return Some(&mut self.lobbies[i]);
+            }
+        } return None;
+    }
+
+    fn lobby_exists(&self, lobby_id: u32) -> bool {
+        for l in &self.lobbies {
+            if l.get_id() == lobby_id {
+                return true;
+            }
+        } return false;
+    }
+
+    fn remove_client_from_lobby(&mut self, pid: u32, lid: u32) {
+        for l in &mut self.lobbies.iter_mut() {
+            if l.get_id() == lid {
+                l.remove_player(pid);
+                break;
+            }
+        }
+    }
+
     fn answer_client(&mut self, host: SocketAddr, msg: String) {
 	self.socket.send_to(msg.as_bytes(), host).unwrap();
     }

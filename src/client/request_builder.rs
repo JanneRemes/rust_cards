@@ -29,11 +29,20 @@ impl RequestBuilderLobby {
         RequestBuilderLobbyJoin::new(id, passwd)
     }
 
+    pub fn list(self) -> RequestBuilderLobbyList {
+        RequestBuilderLobbyList::new()
+    }
+
+    pub fn leave(self, player_id: u32, lobby_id: u32) -> RequestBuilderLobbyLeave {
+        RequestBuilderLobbyLeave::new(player_id, lobby_id)
+    }
+
 }
 
 pub struct RequestBuilderLobbyCreation {
     name: String,
     password: String,
+    hidden: bool,
 }
 
 impl RequestBuilderLobbyCreation {
@@ -42,6 +51,7 @@ impl RequestBuilderLobbyCreation {
         RequestBuilderLobbyCreation {
             name: String::new(),
             password: String::new(),
+            hidden: false,
         }
     }
 
@@ -55,8 +65,13 @@ impl RequestBuilderLobbyCreation {
         self
     }
 
+    pub fn is_hidden(mut self, hidden: bool) -> RequestBuilderLobbyCreation {
+        self.hidden = hidden;
+        self
+    }
+
     pub fn finish(self) -> ServerMessage {
-        ServerMessage::Request(RequestToken::Lobby(LobbyToken::Create(0, self.name, self.password)))
+        ServerMessage::Request(RequestToken::Lobby(LobbyToken::Create(0, self.name, self.password, self.hidden)))
     }
     
 }
@@ -78,4 +93,38 @@ impl RequestBuilderLobbyJoin {
         ServerMessage::Request(RequestToken::Lobby(LobbyToken::Join(self.id, self.password)))
     }
     
+}
+
+pub struct RequestBuilderLobbyList {
+}
+
+impl RequestBuilderLobbyList {
+    fn new() -> RequestBuilderLobbyList {
+        RequestBuilderLobbyList{}
+    }
+
+    pub fn finish(self) -> ServerMessage {
+        ServerMessage::Request(RequestToken::Lobby(LobbyToken::List(vec![])))
+    }
+
+}
+
+pub struct RequestBuilderLobbyLeave {
+    player_id: u32,
+    lobby_id: u32,
+}
+
+impl RequestBuilderLobbyLeave {
+ 
+    fn new(player_id: u32, lobby_id: u32) -> RequestBuilderLobbyLeave {
+        RequestBuilderLobbyLeave {
+            player_id,
+            lobby_id,
+        }
+    }
+
+    pub fn finish(self) -> ServerMessage {
+        ServerMessage::Request(RequestToken::Lobby(LobbyToken::Leave(self.player_id, self.lobby_id)))
+    }
+
 }

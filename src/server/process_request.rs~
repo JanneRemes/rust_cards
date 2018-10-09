@@ -30,8 +30,8 @@ impl Server {
 			    self.answer_client(host, answer_msg);
 			}
 		    },
-                    RequestToken::Lobby(_) => {
-                        println!("Received RequestToken::Lobby!");
+                    RequestToken::Lobby(token) => {
+                        println!("Received RequestToken::Lobby, Token: [{:?}]", token);
                     },
 		}
 	    },
