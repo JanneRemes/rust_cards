@@ -52,22 +52,44 @@ impl Server {
                                 let answer_msg = serde_json::to_string(&answer).expect("Couldn't serialize server answer");
                                 self.answer_client(host, answer_msg);
                             },
+
+                            LobbyToken::PlayerList(pid, _) => {
+
+                                println!("Player ID {} requesting player list!", pid);
+                                let mut players = vec![];
+                                if let Some(lobby) = self.get_lobby_with_pid(pid) {
+                                    let mut txt = String::from("");
+                                    for player in lobby.get_player_ids().iter() {
+                                        players.push(player.to_string());
+                                    }
+                                } else {
+                                    eprintln!("[Error] Couldn't find lobby with given player id!");
+                                }
+                                let answer = ServerMessage::Answer(AnswerToken::Lobby(LobbyToken::PlayerList(0, players)));
+                                let answer_msg = serde_json::to_string(&answer).expect("failed to serialize player LobbyPlayerList");
+                                self.answer_client(host, answer_msg);
+                            },
                             
                             LobbyToken::Create(id, name, passwd, hidden) => {
+                                println!("Player {} wants to create lobby", id);
                                 let mut lobby = Lobby::create(
                                     self.next_lobby_id, name, passwd, hidden
                                 );
                                 self.next_lobby_id += 1;
-                                let answer = ServerMessage::Answer(AnswerToken::Lobby(LobbyToken::Join(lobby.get_id(), String::new())));
+                                let answer = ServerMessage::Answer(AnswerToken::Lobby(LobbyToken::Join(0, lobby.get_id(), String::new())));
                                 let answer_msg = serde_json::to_string(&answer).expect("failed to serialize LobbyJoin on server");
                                 lobby.add_player(id);
                                 self.lobbies.push(lobby);
-                                
                                 self.answer_client(host, answer_msg);
                             },
-                            LobbyToken::Join(id, passwd) => {
+                            LobbyToken::Join(pid, id, passwd) => {
                                 if self.lobby_exists(id) {
-                                    let answer = ServerMessage::Answer(AnswerToken::Lobby(LobbyToken::Join(id, String::from(""))));
+
+                                    if let Some(ref mut lobby) = self.get_lobby_mut(id) {
+                                        lobby.add_player(pid);
+                                    }
+
+                                    let answer = ServerMessage::Answer(AnswerToken::Lobby(LobbyToken::Join(0, id, String::from(""))));
                                     let answer_msg = serde_json::to_string(&answer).expect("");
                                     self.answer_client(host, answer_msg);
                                 }
@@ -93,6 +115,13 @@ impl Server {
                             }
                         };
 
+                    },
+
+                    // Player requests connection to server
+                    RequestToken::Connection => {
+                        let answer = ServerMessage::Ok;
+                        let answer_msg = serde_json::to_string(&answer).expect("failed to serialize OK");
+                        self.answer_client(host, answer_msg);
                     },
 		}
 	    },

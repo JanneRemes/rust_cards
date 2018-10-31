@@ -25,12 +25,16 @@ impl RequestBuilderLobby {
         RequestBuilderLobbyCreation::new()
     }
 
-    pub fn join(self, id: u32, passwd: String) -> RequestBuilderLobbyJoin {
-        RequestBuilderLobbyJoin::new(id, passwd)
+    pub fn join(self, pid: u32, id: u32, passwd: String) -> RequestBuilderLobbyJoin {
+        RequestBuilderLobbyJoin::new(pid, id, passwd)
     }
 
     pub fn list(self) -> RequestBuilderLobbyList {
         RequestBuilderLobbyList::new()
+    }
+    
+    pub fn player_list(self) -> RequestBuilderLobbyPlayerList {
+        RequestBuilderLobbyPlayerList::new()
     }
 
     pub fn leave(self, player_id: u32, lobby_id: u32) -> RequestBuilderLobbyLeave {
@@ -43,6 +47,7 @@ pub struct RequestBuilderLobbyCreation {
     name: String,
     password: String,
     hidden: bool,
+    player_id: u32,
 }
 
 impl RequestBuilderLobbyCreation {
@@ -52,6 +57,7 @@ impl RequestBuilderLobbyCreation {
             name: String::new(),
             password: String::new(),
             hidden: false,
+            player_id: 0,
         }
     }
 
@@ -70,33 +76,39 @@ impl RequestBuilderLobbyCreation {
         self
     }
 
+    pub fn with_player_id(mut self, id: u32) -> Self {
+        self.player_id = id;
+        self
+    }
+
     pub fn finish(self) -> ServerMessage {
-        ServerMessage::Request(RequestToken::Lobby(LobbyToken::Create(0, self.name, self.password, self.hidden)))
+        ServerMessage::Request(RequestToken::Lobby(LobbyToken::Create(self.player_id, self.name, self.password, self.hidden)))
     }
     
 }
 
 pub struct RequestBuilderLobbyJoin {
+    pid: u32,
     id: u32,
     password: String,
 }
 
 impl RequestBuilderLobbyJoin {
-    fn new(id: u32, password: String) -> RequestBuilderLobbyJoin {
+    fn new(pid: u32, id: u32, password: String) -> RequestBuilderLobbyJoin {
         RequestBuilderLobbyJoin {
+            pid,
             id,
             password,
         }
     }
 
     pub fn finish(self) -> ServerMessage {
-        ServerMessage::Request(RequestToken::Lobby(LobbyToken::Join(self.id, self.password)))
+        ServerMessage::Request(RequestToken::Lobby(LobbyToken::Join(self.pid, self.id, self.password)))
     }
-    
+
 }
 
-pub struct RequestBuilderLobbyList {
-}
+pub struct RequestBuilderLobbyList;
 
 impl RequestBuilderLobbyList {
     fn new() -> RequestBuilderLobbyList {
@@ -108,6 +120,28 @@ impl RequestBuilderLobbyList {
     }
 
 }
+
+pub struct RequestBuilderLobbyPlayerList {
+    pid: u32,
+}
+
+impl RequestBuilderLobbyPlayerList {
+    fn new() -> RequestBuilderLobbyPlayerList {
+        RequestBuilderLobbyPlayerList {
+            pid: 0,
+        }
+    }
+
+    pub fn with_player_id(mut self, id: u32) -> RequestBuilderLobbyPlayerList {
+        self.pid = id;
+        self
+    }
+
+    pub fn finish(self) -> ServerMessage {
+        ServerMessage::Request(RequestToken::Lobby(LobbyToken::PlayerList(self.pid, vec![])))
+    }
+}
+
 
 pub struct RequestBuilderLobbyLeave {
     player_id: u32,

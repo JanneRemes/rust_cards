@@ -27,7 +27,6 @@ pub struct Server {
     socket: UdpSocket,
     input_thread: Option<JoinHandle<()>>,
     input_receiver: Receiver<InputMessage>,
-    deck: Deck,
     randomizer: ThreadRng,
 
     next_player_id: u32,
@@ -58,16 +57,12 @@ impl Server {
 	let handle = thread::spawn(move || {input_loop(trans, tc);});
         
         let mut randomizer = thread_rng();
-
-	let mut deck = Deck::new();
-        deck.shuffle(&mut randomizer);
 	
 	Server {
 	    port,
 	    socket,
 	    input_thread: Some(handle),
 	    input_receiver: recv,
-	    deck,
             randomizer,
             next_player_id: 1,
             lobbies: Vec::new(),
@@ -109,8 +104,13 @@ impl Server {
 				self.print_help();
 			    } else if msg.starts_with("/info") {
 				println!("[Info] Listening on port {}", self.port);
-				println!("[Info] Server deck size: {}", self.deck.cards.len());
                                 println!("[Info] Server lobbies: {}", self.lobbies.len());
+                            } else if msg.starts_with("/lobbies") {
+                                println!("[Lobbies]");
+                                for l in &self.lobbies {
+                                    println!("[ID] {} [Name] {}", l.get_id(), l.get_name());
+                                }
+                                println!("[/Lobbies]");
 			    } else {
 				println!("[Server] Unkown command '{}', try '/help' to display commands", msg);
 			    }
@@ -121,6 +121,14 @@ impl Server {
 		}
 	    }
 	}
+    }
+
+    fn get_lobby_with_pid(&self, player_id: u32) -> Option<&Lobby> {
+        for l in &self.lobbies {
+            if l.has_player(player_id) {
+                return Some(l);
+            }
+        } return None;
     }
 
     fn get_lobby(&self, lobby_id: u32) -> Option<&Lobby> {

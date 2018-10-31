@@ -43,7 +43,7 @@ fn get_arg_present(args: &[String], arg_name: &str) -> bool {
 
 fn print_client_help() {
     let arguments = vec![	"help - Display this message",
-				 "connect - IP to connect to [IPv4] Default localhost"
+				"connect - IP to connect to [IPv4] Default localhost"
     ];
     
     println!("Arguments:");
@@ -54,7 +54,7 @@ fn print_client_help() {
 
 fn print_server_help() {
     let arguments = vec![	"help - Display this message",
-				 "port - Set port to listen to [0 - 65535] Default 1337"
+				"port - Set port to listen to [0 - 65535] Default 1337"
     ];
     
     println!("Arguments:");
@@ -98,7 +98,11 @@ fn main() {
 	let address = get_arg::<String>(&args[..], "connect", "127.0.0.1".to_string());
 	
 	let mut client = Client::new(&address, port);
-	client.run();
+        if client.setup() {
+	    client.run();
+        } else {
+            println!("Couldn't connect to server!");
+        }
     }
     
     return;

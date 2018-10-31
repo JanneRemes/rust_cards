@@ -36,7 +36,22 @@ impl Lobby {
     }
 
     pub fn add_player(&mut self, id: u32) {
+        println!("[Lobby Debug] Adding PID {}", id);
         self.player_list.push(id);
+    }
+
+    pub fn has_player(&self, id: u32) -> bool {
+        for pid in self.player_list.iter() {
+            println!("[Lobby Debug] PID {}", pid);
+            if *pid == id {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    pub fn get_player_ids(&self) -> &Vec<u32> {
+        &self.player_list
     }
 
     pub fn remove_player(&mut self, id: u32) {
