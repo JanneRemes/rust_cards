@@ -127,6 +127,8 @@ impl Client {
                         } else if msg.starts_with("help") {
                             self.print_help();
 			} else if msg.starts_with("stop") || msg.starts_with("exit") {
+                            let request = RequestBuilder::
+			    
 			    return;
 			} else if msg.starts_with("info") {
                            println!("[Info] Client running on {}:{}", self.addr, self.port);
@@ -322,7 +324,11 @@ fn parse_message_lobby(msg: String, already_in_lobby: bool, player_id: u32, lobb
 
                 let id = {
                     if let Some(id) = message_chunks.pop() {
-                        id.parse::<u32>().unwrap()
+                        if let Ok(id) = id.parse::<u32>() {
+                            id
+                        } else {
+                            0
+                        }
                     } else {
                         0
                     }

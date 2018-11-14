@@ -12,6 +12,16 @@ impl RequestBuilder {
         RequestBuilderLobby::new()
     }
 
+    pub fn exit(self) -> RequestBuilderExit {
+        RequestBuilderExit::new()
+    }
+
+}
+
+pub struct RequestBuilderExit;
+
+impl RequestBuilderExit {
+
 }
 
 pub struct RequestBuilderLobby;
